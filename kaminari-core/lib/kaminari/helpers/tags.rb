@@ -15,21 +15,34 @@ module Kaminari
     # When no matching template were found in your app, the engine's pre
     # installed template will be used.
     #   e.g.)  Paginator  ->  $GEM_HOME/kaminari-x.x.x/app/views/kaminari/_paginator.html.erb
+
+
     class Tag
+      class Rails
+        def initialize(template, params: {}, param_name: nil, theme: nil, views_prefix: nil, **options) #:nodoc:
+          @param_name = param_name || Kaminari.config.param_name
+          @params = template.params
+          # @params in Rails 5 no longer inherits from Hash
+          @params = @params.to_unsafe_h if @params.respond_to?(:to_unsafe_h)
+          @params = @params.with_indifferent_access
+          @params.except!(*PARAM_KEY_BLACKLIST)
+          @params.merge! params
+        end
+
+        def to_s(locals = {}) #:nodoc:
+          formats = (@template.respond_to?(:formats) ? @template.formats : Array(@template.params[:format])) + [:html]
+          @template.render partial: partial_path, locals: @options.merge(locals), formats: formats
+        end
+      end
+
       def initialize(template, params: {}, param_name: nil, theme: nil, views_prefix: nil, **options) #:nodoc:
         @template, @theme, @views_prefix, @options = template, theme, views_prefix, options
         @param_name = param_name || Kaminari.config.param_name
-        @params = template.params
-        # @params in Rails 5 no longer inherits from Hash
-        @params = @params.to_unsafe_h if @params.respond_to?(:to_unsafe_h)
-        @params = @params.with_indifferent_access
-        @params.except!(*PARAM_KEY_BLACKLIST)
-        @params.merge! params
+        @params     = params
       end
 
       def to_s(locals = {}) #:nodoc:
-        formats = (@template.respond_to?(:formats) ? @template.formats : Array(@template.params[:format])) + [:html]
-        @template.render partial: partial_path, locals: @options.merge(locals), formats: formats
+        @template.call partial: partial_path, locals: @options.merge(locals)
       end
 
       def page_url_for(page)
